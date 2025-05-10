@@ -20,7 +20,6 @@ const nextConfig: NextConfig = {
     // Allow loading local images
     unoptimized: true, // Or configure domains/patterns if hosting externally
   },
-  output:"export"
 };
 
 export default nextConfig;
