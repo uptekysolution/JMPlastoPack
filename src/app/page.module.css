@@ -1,0 +1,40 @@
+/* src/app/page.module.css */
+.homePageContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+    background-color: #f4f4f4;
+    color: #333;
+    width: 100%;
+    min-width: 100vw;
+
+}
+
+.homePageTitle {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.homePageSubtitle {
+  font-size: 1.2rem;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.homePageContent {
+    max-width: 800px;
+    text-align: center;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.homePageContent p {
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
