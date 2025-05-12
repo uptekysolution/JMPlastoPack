@@ -2,8 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { User } from '../lib/types'; 
-import { checkUserExists } from '../lib/auth'; // Import the new checkUserExists function
+import { User } from '../lib/types';
+import { checkUserExists } from '../lib/auth';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -11,32 +11,22 @@ interface AuthContextType {
   loading: boolean;
   login: (userData: User) => void;
   logout: () => void;
-  updateLoggedInUser: (updatedUserData: User) => void; // Add function to update user details
+  updateLoggedInUser: (updatedUserData: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Define the User type if not already defined
-// Example:
-// export interface User {
-//   id: string;
-//   name: string;
-//   role: 'admin' | 'employee';
-// }
-
-// Interval for checking user existence (e.g., every 30 seconds)
 const USER_CHECK_INTERVAL = 30 * 1000;
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true); // Start with loading true
+  const [loading, setLoading] = useState<boolean>(true);
   const router = useRouter();
   const pathname = usePathname();
 
-  // --- Logout Function ---
-   const logout = useCallback(() => {
-    console.log("Executing logout...");
+  const logout = useCallback(() => {
+    if (process.env.NODE_ENV === 'development') console.log("Executing logout...");
     if (typeof window !== 'undefined') {
       localStorage.removeItem('loggedInUserId');
       localStorage.removeItem('loggedInUserName');
@@ -44,131 +34,127 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     setUser(null);
     setIsAuthenticated(false);
-    // Check if not already on the login page before pushing
     if (pathname !== '/') {
-       router.push('/'); // Redirect to login page after logout
+      router.push('/');
     }
-   }, [router, pathname]); // Include pathname in dependencies
+  }, [router, pathname]);
 
-   // --- Function to update logged-in user details ---
-   const updateLoggedInUser = useCallback((updatedUserData: User) => {
-     console.log(`Updating logged-in user details in context for: ${updatedUserData.id}`);
-     if (typeof window !== 'undefined') {
-       localStorage.setItem('loggedInUserId', updatedUserData.id);
-       localStorage.setItem('loggedInUserName', updatedUserData.name);
-       localStorage.setItem('loggedInUserRole', updatedUserData.role);
-     }
-     setUser(updatedUserData);
-     // Ensure isAuthenticated remains true
-     if (!isAuthenticated) {
-       setIsAuthenticated(true);
-     }
-   }, [isAuthenticated]); // Depend on isAuthenticated to potentially set it
+  const updateLoggedInUser = useCallback((updatedUserData: User) => {
+    if (process.env.NODE_ENV === 'development') console.log(`Updating logged-in user details for: ${updatedUserData.id}`);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('loggedInUserId', updatedUserData.id);
+      localStorage.setItem('loggedInUserName', updatedUserData.name);
+      localStorage.setItem('loggedInUserRole', updatedUserData.role);
+    }
+    setUser(updatedUserData);
+    if (!isAuthenticated) {
+      setIsAuthenticated(true);
+    }
+  }, [isAuthenticated]);
 
-  // --- Initial Auth Check ---
   useEffect(() => {
-    console.log("Auth provider mounted or pathname changed:", pathname);
-    let isMounted = true;
-    const verifyAuth = async () => {
-        setLoading(true); // Set loading true at the start of verification
-        try {
-            const storedUserId = localStorage.getItem('loggedInUserId');
-            const storedUserName = localStorage.getItem('loggedInUserName');
-            const storedUserRole = localStorage.getItem('loggedInUserRole') as 'admin' | 'employee' | null;
+    if (typeof window === 'undefined') return; // Skip on server
 
-            if (storedUserId && storedUserName && storedUserRole) {
-                console.log(`Found user info in localStorage: ${storedUserId}`);
-                // Verify user still exists in the database
-                const exists = await checkUserExists(storedUserId);
-                if (exists && isMounted) {
-                     console.log(`User ${storedUserId} confirmed to exist in DB.`);
-                     const loggedInUser: User = { id: storedUserId, name: storedUserName, role: storedUserRole };
-                     setUser(loggedInUser);
-                     setIsAuthenticated(true);
-                } else if (!exists && isMounted) {
-                     console.warn(`User ${storedUserId} from localStorage not found in DB. Forcing logout.`);
-                     logout(); // User deleted, force logout
-                }
-            } else {
-                 console.log("No user info in localStorage.");
-                 if (isMounted) {
-                     setUser(null);
-                     setIsAuthenticated(false);
-                     // Redirect to login if not authenticated and not already on the login page
-                     if (pathname !== '/') {
-                         console.log("Redirecting to login page (no session).");
-                         router.push('/');
-                     }
-                 }
-            }
-        } catch (error) {
-            console.error("Error during initial auth check:", error);
-            if (isMounted) {
-                setUser(null);
-                setIsAuthenticated(false);
-                if (pathname !== '/') {
-                    console.log("Redirecting to login page (auth check error).");
-                    router.push('/');
-                }
-            }
-        } finally {
-            if (isMounted) {
-                console.log("Initial auth check finished.");
-                setLoading(false); // Finished loading check
-            }
+    if (process.env.NODE_ENV === 'development') {
+      console.log("Auth provider mounted or pathname changed:", pathname);
+    }
+
+    let isMounted = true;
+
+    const verifyAuth = async () => {
+      setLoading(true);
+      try {
+        const storedUserId = localStorage.getItem('loggedInUserId');
+        const storedUserName = localStorage.getItem('loggedInUserName');
+        const storedUserRole = localStorage.getItem('loggedInUserRole') as 'admin' | 'employee' | null;
+
+        if (storedUserId && storedUserName && storedUserRole) {
+          if (process.env.NODE_ENV === 'development') console.log(`Found user info in localStorage: ${storedUserId}`);
+          const exists = await checkUserExists(storedUserId);
+          if (exists && isMounted) {
+            if (process.env.NODE_ENV === 'development') console.log(`User ${storedUserId} confirmed to exist in DB.`);
+            setUser({ id: storedUserId, name: storedUserName, role: storedUserRole });
+            setIsAuthenticated(true);
+          } else if (!exists && isMounted) {
+            if (process.env.NODE_ENV === 'development') console.warn(`User ${storedUserId} not found in DB. Logging out.`);
+            logout();
+          }
+        } else if (isMounted) {
+          if (process.env.NODE_ENV === 'development') console.log("No user info in localStorage.");
+          setUser(null);
+          setIsAuthenticated(false);
+          if (pathname !== '/') {
+            router.push('/');
+          }
         }
+      } catch (error) {
+        console.error("Error during auth check:", error);
+        if (isMounted) {
+          setUser(null);
+          setIsAuthenticated(false);
+          if (pathname !== '/') {
+            router.push('/');
+          }
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     };
 
     verifyAuth();
 
-    // Cleanup function to set isMounted to false when the component unmounts
     return () => {
-        isMounted = false;
-        console.log("Auth provider unmounted.");
+      isMounted = false;
+      if (process.env.NODE_ENV === 'development') console.log("Auth provider unmounted.");
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, logout]); // Rerun check if pathname changes or logout function reference changes
+  }, [pathname, logout]);
 
+  useEffect(() => {
+    if (loading) return;
 
-   // --- Periodic User Existence Check ---
-   useEffect(() => {
-     let intervalId: NodeJS.Timeout | null = null;
+    let intervalId: NodeJS.Timeout | null = null;
 
-     const checkSession = async () => {
-       if (isAuthenticated && user?.id) {
-         console.log(`Periodic check: Verifying existence of user ${user.id}`);
-         const exists = await checkUserExists(user.id);
-         if (!exists) {
-           console.warn(`Periodic check: User ${user.id} no longer exists. Forcing logout.`);
-           logout();
-           if (intervalId) clearInterval(intervalId); // Stop checking after logout
-         } else {
-              console.log(`Periodic check: User ${user.id} still exists.`);
-         }
-       }
-     };
+    const checkSession = async () => {
+      if (isAuthenticated && user?.id) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Periodic check: Verifying user ${user.id}`);
+        }
+        const exists = await checkUserExists(user.id);
+        if (!exists) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(`User ${user.id} no longer exists. Logging out.`);
+          }
+          logout();
+          if (intervalId) clearInterval(intervalId);
+        }
+      }
+    };
 
-     // Start the interval only if the user is authenticated
-     if (isAuthenticated && user?.id) {
-       console.log("Starting periodic user existence check.");
-       intervalId = setInterval(checkSession, USER_CHECK_INTERVAL);
-     } else {
-          console.log("User not authenticated, periodic check not started.");
-     }
+    if (isAuthenticated && user?.id) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log("Starting periodic user existence check.");
+      }
+      intervalId = setInterval(checkSession, USER_CHECK_INTERVAL);
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.log("User not authenticated or still loading, periodic check not started.");
+      }
+    }
 
-     // Cleanup interval on unmount or when authentication state changes
-     return () => {
-       if (intervalId) {
-         console.log("Stopping periodic user existence check.");
-         clearInterval(intervalId);
-       }
-     };
-   }, [isAuthenticated, user, logout]); // Depend on auth state, user, and logout
+    return () => {
+      if (intervalId) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log("Stopping periodic user existence check.");
+        }
+        clearInterval(intervalId);
+      }
+    };
+  }, [isAuthenticated, user, logout, loading]);
 
-
-  // --- Login Function ---
   const login = (userData: User) => {
-    console.log(`Login function called for user: ${userData.id}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Login function called for user: ${userData.id}`);
+    }
     if (typeof window !== 'undefined') {
       localStorage.setItem('loggedInUserId', userData.id);
       localStorage.setItem('loggedInUserName', userData.name);
@@ -176,11 +162,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     setUser(userData);
     setIsAuthenticated(true);
-    // Redirect after login based on role
-    console.log(`Redirecting to /${userData.role}/dashboard`);
     router.push(`/${userData.role}/dashboard`);
   };
-
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, user, loading, login, logout, updateLoggedInUser }}>
